@@ -1,0 +1,3 @@
+[workspace]
+members = ["crates/pixelmon-bin","crates/pixelmon-types"]
+resolver = "3"

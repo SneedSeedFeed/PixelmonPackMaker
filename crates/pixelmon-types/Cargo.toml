@@ -1,0 +1,17 @@
+[package]
+name = "pixelmon-types"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.100"
+derive_more = { version = "2.0.1", features = ["full"] }
+getset = "0.1.6"
+rust_decimal = { version = "1.39.0", default-features = false, features = [
+    "serde",
+    "serde-float",
+] }
+serde = { version = "1.0.228", features = ["alloc", "derive", "rc"] }
+serde_json = { version = "1.0.145", features = ["alloc"] }
+serde_path_to_error = "0.1.20"
+zip = "6.0.0"

@@ -1,0 +1,13 @@
+# Preventing myself accidentally comitting dev files
+*.zip 
+*.jar
+/data-exploration
+/expixel-sounds
+/resource-sounds
+/resource-sounds-converted
+sounds.json
+
+
+# Added by cargo
+/target
+

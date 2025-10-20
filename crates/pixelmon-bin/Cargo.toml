@@ -1,0 +1,16 @@
+[package]
+name = "pixelmon-bin"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1.0.100"
+clap = { version = "4.5.49", features = ["derive"] }
+clap_derive = { version = "4.5.49" }
+glob = "0.3.3"
+itertools = "0.14.0"
+pixelmon-types.path = "../pixelmon-types"
+serde = "1.0.228"
+serde_json = "1.0.145"
+strsim = "0.11.1"
+zip = "6.0.0"
