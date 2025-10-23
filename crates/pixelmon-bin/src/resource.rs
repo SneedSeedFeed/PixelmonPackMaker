@@ -166,7 +166,7 @@ fn format_resource_name(path: &Path) -> anyhow::Result<Option<String>> {
         return Ok(Some(file_stem.trim().replace(' ', "")));
     };
 
-    let (name_part, form_part) = file_stem.split_at(first_bracket - 1);
+    let (name_part, form_part) = file_stem.split_at(first_bracket);
 
     let form_part = form_part
         .trim()

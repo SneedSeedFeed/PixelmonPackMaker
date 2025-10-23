@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct SoundRegistry(pub HashMap<String, SoundInfo>); // BTreeMap to maintain order from the source
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct SoundRegistry(pub HashMap<String, SoundInfo>);
 
 impl SoundRegistry {
     pub fn register_mob_sound(&mut self, mob_name: &str, form_name: Option<&str>) -> String {

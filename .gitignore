@@ -5,8 +5,9 @@
 /expixel-sounds
 /resource-sounds
 /resource-sounds-converted
+/sources
 sounds.json
-
+pack_report*.json
 
 # Added by cargo
 /target

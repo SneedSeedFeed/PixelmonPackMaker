@@ -2,7 +2,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SpeciesData {
     pub name: String,
@@ -12,7 +12,7 @@ pub struct SpeciesData {
     pub generation: u32,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Form {
     pub name: String,
@@ -68,7 +68,7 @@ pub struct Form {
     pub growth_data: Option<GrowthData>,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum ExperienceGroup {
     Slow,
@@ -79,7 +79,7 @@ pub enum ExperienceGroup {
     Fluctuating,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Dimensions {
     pub height: Decimal,
@@ -91,7 +91,7 @@ pub struct Dimensions {
     pub hover_height: Option<Decimal>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Moves {
     pub level_up_moves: Vec<LevelUpMove>,
@@ -112,14 +112,14 @@ pub struct Moves {
     pub tm_moves: Vec<String>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct LevelUpMove {
     pub level: u32,
     pub attacks: Vec<String>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Abilities {
     pub abilities: Vec<String>,
@@ -127,7 +127,7 @@ pub struct Abilities {
     pub hidden_abilities: Option<Vec<String>>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Movement {
     pub rideable: bool,
@@ -144,7 +144,7 @@ pub struct Movement {
     pub swimming_parameters: Option<SwimmingParameters>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct SwimmingParameters {
     pub depth_range_start: i32,
@@ -170,7 +170,7 @@ pub struct SwimmingParameters {
     pub should_sink: Option<bool>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct FlyingParameters {
     pub fly_height_min: u32,
@@ -186,7 +186,7 @@ pub struct FlyingParameters {
     pub landing_materials: LandingMaterials,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(deny_unknown_fields)]
 pub struct MountedFlyingParameters {
     pub r#type: String,
@@ -208,21 +208,21 @@ pub struct MountedFlyingParameters {
     pub hover_ticks: u32,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum LandingMaterials {
     LeavesAndGrass,
     None,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RidingOffsets {
     pub standing: RidingOffsetXYZ,
     pub moving: RidingOffsetXYZ,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct RidingOffsetXYZ {
     x: Decimal,
@@ -230,7 +230,7 @@ pub struct RidingOffsetXYZ {
     z: Decimal,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Aggression {
     pub timid: u32,
@@ -238,7 +238,7 @@ pub struct Aggression {
     pub aggressive: u32,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Stats {
     pub hp: u32,
@@ -249,7 +249,7 @@ pub struct Stats {
     pub speed: u32,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct EvYields {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -266,7 +266,7 @@ pub struct EvYields {
     pub speed: Option<u32>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(deny_unknown_fields)]
 pub struct GrowthData {
     pub mean: Decimal,
@@ -275,7 +275,7 @@ pub struct GrowthData {
     pub max_render_scale: Decimal,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Spawn {
     pub base_exp: u32,
@@ -285,7 +285,7 @@ pub struct Spawn {
     pub spawn_locations: Vec<SpawnLocation>,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum SpawnLocation {
     Land,
@@ -296,7 +296,7 @@ pub enum SpawnLocation {
 }
 
 // Most controversial enum I will ever write
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum Gender {
     All,
@@ -304,14 +304,14 @@ pub enum Gender {
     Female,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct GenderProperties {
     pub gender: Gender,
     pub palettes: Vec<Palette>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Palette {
     pub name: String, // Could make a special case for 'none' but ehhhh
@@ -328,28 +328,28 @@ pub struct Palette {
     pub translation_key: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(deny_unknown_fields)]
 pub struct Sound {
     pub sound_id: String,
     pub range: u32,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(deny_unknown_fields)]
 pub struct Model {
     pub model_predicate: ModelPredicate,
     pub models: SeqOrMap,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(untagged)] // Fucking walking wake
 pub enum SeqOrMap {
     Seq(Vec<ModelInternal>), // Most common so put this first
     Map(BTreeMap<String, Vec<ModelInternal>>),
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(deny_unknown_fields)]
 pub struct ModelPredicate {
     pub r#type: String,
@@ -359,7 +359,7 @@ pub struct ModelPredicate {
     pub flying_or_swimming: Option<bool>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(deny_unknown_fields)]
 pub struct ModelInternal {
     pub texture: String,
@@ -386,14 +386,14 @@ pub struct ModelInternal {
     pub offsets: Option<Vec<Decimal>>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(deny_unknown_fields)]
 pub struct ModelAttachment {
     pub attachment_point: String,
     pub model: ModelAttachmentInternal,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(deny_unknown_fields)]
 pub struct ModelAttachmentInternal {
     pub model: String,
@@ -407,21 +407,21 @@ pub struct ModelAttachmentInternal {
     pub scale: Option<Decimal>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Animation {
     pub r#type: String,
     pub animation: String,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Particle {
     pub probability: Decimal,
     pub options: ParticleOptions,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct ParticleOptions {
     pub r#type: String,
@@ -430,7 +430,7 @@ pub struct ParticleOptions {
     pub tint: Rgba,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Rgba {
     pub red: u8,
@@ -439,7 +439,7 @@ pub struct Rgba {
     pub alpha: u8,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum EggGroup {
     Monster,
@@ -459,7 +459,7 @@ pub enum EggGroup {
     WaterTwo,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum Types {
     Normal,
@@ -482,7 +482,7 @@ pub enum Types {
     Fairy,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Gigantamax {
     pub can_have_factor: bool,
@@ -493,7 +493,7 @@ pub struct Gigantamax {
     pub r#move: Option<String>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Evolution {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -512,7 +512,7 @@ pub struct Evolution {
     pub anticonditions: Option<Vec<AntiCondition>>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct AntiCondition {
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -520,14 +520,14 @@ pub struct AntiCondition {
     pub evo_condition_type: String,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct EvolutionItem {
     #[serde(rename = "itemID")]
     pub item_id: String,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(
     tag = "evoConditionType",
     rename_all = "camelCase",
@@ -636,14 +636,14 @@ pub enum EvolutionCondition {
     },
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum EvolutionScroll {
     Darkness,
     Waters,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum EvolutionTime {
     Day,
@@ -655,7 +655,7 @@ pub enum EvolutionTime {
     Midnight,
 }
 
-#[derive(Debug, Clone, Copy, Deserialize, Serialize)]
+#[derive(Debug, Clone, Copy, Deserialize, Serialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum StatEvo {
     Attack,

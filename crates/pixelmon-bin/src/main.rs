@@ -1,29 +1,36 @@
 use std::{
     collections::HashSet,
-    fs::File,
     io::{Read, Write},
     ops::Deref,
     path::PathBuf,
-    sync::{LazyLock, Mutex},
+    sync::Mutex,
 };
 
 pub mod expixel;
 pub mod resource;
+pub mod resource_pack_writer;
 use anyhow::{Context, anyhow};
 use clap::Parser;
 use itertools::Itertools;
 use pixelmon_types::{
     sound_registry::SoundRegistry,
-    species_data::{Sound, SpeciesData},
+    species_data::{Form, Sound, SpeciesData},
 };
+
+use serde::Serialize;
 use zip::{ZipWriter, write::SimpleFileOptions};
 
-use crate::{expixel::get_sound_expixel, resource::get_sound_resource};
+use crate::{
+    config::Config, expixel::get_sound_expixel, resource::get_sound_resource,
+    resource_pack_writer::ResourcePackWriter,
+};
 
 #[derive(Parser)]
 struct Args {
-    input: PathBuf,
+    config: PathBuf,
 }
+
+pub mod config;
 
 fn is_pixelmon_filepath(s: &str) -> bool {
     let mut splits = s.split('/').rev();
@@ -39,10 +46,33 @@ fn is_pixelmon_filepath(s: &str) -> bool {
         && !json_question_mark.contains("000_missingno")
 }
 
+fn is_pixelmon_sound_file(s: &str) -> bool {
+    s.starts_with("assets/pixelmon/sounds/pixelmon/") && s.ends_with(".ogg")
+}
+
+#[derive(Debug, Serialize)]
+struct PackCreationReport {
+    changed_species_files: Vec<String>,
+    added_sound_files: Vec<String>,
+    replaced_sound_files: Vec<String>,
+    unchanged_sound_files: Vec<String>,
+}
+
 fn main() {
     let args = Args::parse();
-    let zip_file = std::fs::File::open(args.input).unwrap();
+
+    let config: Config =
+        serde_json::from_reader(&mut std::fs::File::open(args.config).unwrap()).unwrap();
+
+    let zip_file = std::fs::File::open(&config.source).unwrap();
     let mut zip_reader = zip::ZipArchive::new(zip_file).unwrap();
+
+    let existing_sound_files = zip_reader
+        .file_names()
+        .filter(|s| is_pixelmon_sound_file(s))
+        .map(PathBuf::from)
+        .map(|path| path.file_name().unwrap().to_str().unwrap().to_string())
+        .collect::<HashSet<_>>();
 
     let files = zip_reader
         .file_names()
@@ -61,6 +91,7 @@ fn main() {
         species_data.push((
             file_name,
             serde_json::from_str::<SpeciesData>(&buf).unwrap(),
+            false,
         ));
     }
 
@@ -71,34 +102,47 @@ fn main() {
         .read_to_string(&mut buf)
         .unwrap();
 
-    let sound_registry = Mutex::new(serde_json::from_str::<SoundRegistry>(&buf).unwrap());
+    let sound_registry = Mutex::new(SoundRegistry::default()); // Supposedly don't have to replace the whole sounds.json?
 
-    let resource_pack_zip = Mutex::new(ZipWriter::new(
-        std::fs::File::create("output_resource_pack.zip").unwrap(),
-    ));
+    let resource_pack_file = std::fs::OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .open(format!(
+            "pixelmon_sound_replacer_resource_pack_{}.zip",
+            config.version_number
+        ))
+        .unwrap();
+    let mut resource_pack_zip = ZipWriter::new(resource_pack_file);
 
     resource_pack_zip
-        .lock()
-        .unwrap()
         .add_directory_from_path(
             "assets/pixelmon/sounds/pixelmon",
             SimpleFileOptions::default(),
         )
         .unwrap();
 
-    const NUM_THREADS: usize = 16;
     let len = species_data.len();
+
+    let resource_pack_zip = Mutex::new(ResourcePackWriter::new(resource_pack_zip));
 
     std::thread::scope(|s| {
         for chunk in species_data
             .iter_mut()
-            .chunks(len / NUM_THREADS)
+            .chunks(len / config.num_threads)
             .into_iter()
         {
             let chunk = chunk.collect::<Vec<_>>();
             s.spawn(|| {
-                for (_, species) in chunk {
-                    process_species(species, &sound_registry, &resource_pack_zip).unwrap();
+                for (_, species, did_mutate) in chunk {
+                    process_species(
+                        species,
+                        &sound_registry,
+                        &resource_pack_zip,
+                        did_mutate,
+                        &config,
+                    )
+                    .unwrap();
                 }
             });
         }
@@ -106,244 +150,312 @@ fn main() {
 
     let sound_json = serde_json::to_string_pretty(sound_registry.lock().unwrap().deref()).unwrap();
 
-    {
-        let mut lock = resource_pack_zip.lock().unwrap();
-        lock.start_file("assets/pixelmon/sounds.json", SimpleFileOptions::default())
-            .unwrap();
-        lock.write_all(sound_json.as_bytes()).unwrap();
+    let (mut resource_pack_zip, mut added_sounds) =
+        resource_pack_zip.into_inner().unwrap().into_inner();
 
-        lock.start_file_from_path("pack.mcmeta", SimpleFileOptions::default())
-            .unwrap();
+    resource_pack_zip
+        .start_file("assets/pixelmon/sounds.json", SimpleFileOptions::default())
+        .unwrap();
+    resource_pack_zip.write_all(sound_json.as_bytes()).unwrap();
 
-        lock.write_all(
-            br#"{
-  "pack": {
-    "pack_format": 34,
-    "description": "Shitty ahh pixelmon sound replacer"
-  }
-}"#,
-        )
+    resource_pack_zip
+        .start_file_from_path("pack.mcmeta", SimpleFileOptions::default())
         .unwrap();
 
-        lock.start_file_from_path("Credits.txt", SimpleFileOptions::default())
+    resource_pack_zip
+        .write_all(config.resource_pack_mcmeta.get().as_bytes())
+        .unwrap();
+
+    resource_pack_zip
+        .start_file_from_path("Credits.txt", SimpleFileOptions::default())
+        .unwrap();
+    resource_pack_zip
+        .write_all(config.credits.as_bytes())
+        .unwrap();
+
+    for (src, dest) in config.deep_copy {
+        if !existing_sound_files.contains(&format!("{dest}.ogg")) {
+            print!("{dest} is not a sound file from the source, please review config");
+            std::process::exit(1)
+        }
+        resource_pack_zip
+            .deep_copy_file_from_path(
+                format!("assets/pixelmon/sounds/pixelmon/{src}.ogg"),
+                format!("assets/pixelmon/sounds/pixelmon/{dest}.ogg"),
+            )
             .unwrap();
-        lock.write_all(b"Game sound effects/cries made/compiled by RegularPerson\nSome sounds made/compiled by Mysticus, Random Talking Bush and MeruZena all @ https://sounds.spriters-resource.com/")
-            .unwrap()
+        added_sounds.insert(format!("{dest}.ogg"));
     }
 
-    resource_pack_zip.into_inner().unwrap().finish().unwrap();
+    resource_pack_zip.finish().unwrap();
 
-    let data_pack = std::fs::File::create("output_data_pack.zip").unwrap();
+    let data_pack = std::fs::File::create(format!(
+        "pixelmon_sound_replacer_data_pack_{}.zip",
+        config.version_number
+    ))
+    .unwrap();
     let mut data_pack = ZipWriter::new(data_pack);
 
     data_pack
         .start_file("pack.mcmeta", SimpleFileOptions::default())
         .unwrap();
     data_pack
-        .write_all(
-            br#"{
-  "pack": {
-    "pack_format": 48,
-    "description": "Shitty ahh pixelmon sound replacer datapack, updates species.json to have the correct sound mappings"
-  }
-}"#,
-        )
+        .write_all(config.data_pack_mcmeta.get().as_bytes())
         .unwrap();
 
-    for (path, species) in species_data {
-        data_pack
-            .start_file(&path, SimpleFileOptions::default())
-            .unwrap();
-        data_pack
-            .write_all(&serde_json::to_vec(&species).unwrap())
-            .unwrap();
+    data_pack
+        .start_file_from_path("Credits.txt", SimpleFileOptions::default())
+        .unwrap();
+    data_pack.write_all(config.credits.as_bytes()).unwrap();
+
+    let mut changed_species_files = Vec::<String>::new();
+    for (path, species, did_mutate) in species_data {
+        if did_mutate {
+            let (idx, _) = path
+                .char_indices()
+                .rev()
+                .find(|(_, char)| *char == '/')
+                .unwrap();
+
+            let file_name = String::from(&path[idx + 1..path.len()]);
+            changed_species_files.push(file_name);
+
+            data_pack
+                .start_file(&path, SimpleFileOptions::default())
+                .unwrap();
+            data_pack
+                .write_all(&serde_json::to_vec_pretty(&species).unwrap())
+                .unwrap();
+        }
     }
 
     data_pack.finish().unwrap();
+
+    let mut added_sound_files = Vec::new();
+    let mut replaced_sound_files = Vec::new();
+    let mut unchanged_sound_files = Vec::new();
+
+    for added_sound in &added_sounds {
+        if existing_sound_files.contains(added_sound) {
+            replaced_sound_files.push(added_sound.clone())
+        } else {
+            added_sound_files.push(added_sound.clone())
+        }
+    }
+
+    for existing_sound in existing_sound_files {
+        if !added_sounds.contains(&existing_sound) {
+            unchanged_sound_files.push(existing_sound)
+        }
+    }
+
+    changed_species_files.sort();
+    added_sound_files.sort();
+    replaced_sound_files.sort();
+    unchanged_sound_files.sort();
+    let pack_report = PackCreationReport {
+        changed_species_files,
+        added_sound_files,
+        replaced_sound_files,
+        unchanged_sound_files,
+    };
+
+    let mut report_file =
+        std::fs::File::create(format!("pack_report_{}.json", config.version_number)).unwrap();
+
+    serde_json::to_writer_pretty(&mut report_file, &pack_report).unwrap();
 }
-
-// Separating this away from the big ass species data helps the IDE. Those serde macros are brutal
-
-// Either due to not being relevant or lacking data, skip these form names
-static SKIP_FORM_NAMES: LazyLock<HashSet<&'static str>> =
-    LazyLock::new(|| HashSet::from_iter(["gmax", "alolan", "gmaxrs", "gmaxss"]));
-
-// These are the 'base' form thus are form_name = None
-static TREAT_AS_NO_FORM_NAME: LazyLock<HashSet<&'static str>> =
-    LazyLock::new(|| HashSet::from_iter(["teal", "base"]));
-
-// For the same reasons, don't do anything 'per form' just throw any new sfxs on the first form in their vec and call it a day
-static JUST_USE_BASE: LazyLock<HashSet<&'static str>> = LazyLock::new(|| {
-    HashSet::from_iter([
-        "aegislash",
-        "arceus",
-        "basculin",
-        "bidoof",
-        "burmy",
-        "castform",
-        "cherrim",
-        "cramorant",
-        "darmanitan",
-        "decidueye",
-        "deerling",
-        "deoxys",
-        "dialga",
-        "dragonite",
-        "dubwool",
-        "dudunsparce",
-        "eiscue",
-        "electrode",
-        "enamorus",
-        "eternatus",
-        "furfrou",
-        "gastrodon",
-        "genesect",
-        "giratina",
-        "goodra",
-        "greninja",
-        "keldeo",
-        "landorus",
-        "lunala",
-        "lunatone",
-        "magearna",
-        "mareep",
-        "marshadow",
-        "meloetta",
-        "mimikyu",
-        "minior",
-        "morpeko",
-        "ogerpon",
-        "palkia",
-        "pichu",
-        "pikachu",
-        "poltchageist",
-        "polteageist",
-        "ponyta",
-        "rapidash",
-        "rotom",
-        "samurott",
-        "sawsbuck",
-        "shellos",
-        "silvally",
-        "sinistcha",
-        "sinistea",
-        "sneasel",
-        "solgaleo",
-        "squawkabilly",
-        "stunfisk",
-        "tauros",
-        "terapagos",
-        "thundurus",
-        "tornadus",
-        "typhlosion",
-        "unown",
-        "voltorb",
-        "wooloo",
-        "wooper",
-        "wormadam",
-        "xerneas",
-        "yamask",
-        "zoroark",
-        "zorua",
-    ])
-});
 
 fn process_species(
     species: &mut SpeciesData,
     sound_registry: &Mutex<SoundRegistry>,
-    resource_zip: &Mutex<zip::ZipWriter<File>>,
+    resource_zip: &Mutex<ResourcePackWriter>,
+    did_mutate: &mut bool,
+    config: &Config,
 ) -> anyhow::Result<()> {
-    let name = species.name.to_lowercase();
+    let pokemon_name = species.name.to_lowercase();
 
-    if JUST_USE_BASE.contains(name.as_str()) {
-        let sound_file = match get_sound_expixel(&name, None)? {
-            Some(f) => f,
-            None => match get_sound_resource(&name, None)? {
-                Some(f) => f,
-                None => return Err(anyhow!("Failed to get sound file for {}", &name)),
-            },
-        };
-
-        let form = species.forms.first_mut().context("no forms")?;
-
-        let first_palette = form
-            .gender_properties
-            .as_mut()
-            .and_then(|f| f.first_mut())
-            .and_then(|props| props.palettes.first_mut())
-            .context(format!("No gender properties for {name}-{}", form.name))?;
-
-        let sound_data = std::fs::read(&sound_file)?;
-        let sound_id = sound_registry
-            .lock()
-            .unwrap()
-            .register_mob_sound(&name, None);
-
-        first_palette.sounds.replace(vec![Sound {
-            sound_id,
-            range: 14,
-        }]);
-
-        let dest_path = format!("assets/pixelmon/sounds/pixelmon/{}.ogg", name);
-
-        {
-            let mut lock = resource_zip.lock().unwrap();
-            lock.start_file_from_path(&dest_path, SimpleFileOptions::default())?;
-            lock.write_all(&sound_data).unwrap();
-        }
+    if config.dumb_insert.contains(&pokemon_name) {
+        process_form_dumb(
+            species,
+            &pokemon_name,
+            sound_registry,
+            resource_zip,
+            did_mutate,
+        )
     } else {
+        let to_skip = config.skip_form_names.get(&pokemon_name);
         for form in species.forms.iter_mut() {
-            if SKIP_FORM_NAMES.contains(form.name.as_str()) {
+            if config.skip_form_names_all.contains(&form.name) {
                 continue;
             }
 
-            let form_name =
-                Some(form.name.as_str()).filter(|name| !TREAT_AS_NO_FORM_NAME.contains(name));
-
-            let sound_file = match get_sound_expixel(&name, form_name)? {
-                Some(f) => f,
-                None => match get_sound_resource(&name, form_name)? {
-                    Some(f) => f,
-                    None => {
-                        return Err(anyhow!(
-                            "Failed to get sound file for {} {form_name:?}",
-                            &name
-                        ));
+            if let Some(to_skip) = to_skip {
+                match to_skip {
+                    config::ConfigForm::All => continue,
+                    config::ConfigForm::Form(to_skip) => {
+                        if to_skip.contains(&form.name) {
+                            continue;
+                        }
                     }
-                },
-            };
-
-            let first_palette = form
-                .gender_properties
-                .as_mut()
-                .and_then(|f| f.first_mut())
-                .and_then(|props| props.palettes.first_mut())
-                .context(format!("No gender properties for {name}-{}", form.name))?;
-
-            let sound_data = std::fs::read(&sound_file)?;
-            let sound_id = sound_registry
-                .lock()
-                .unwrap()
-                .register_mob_sound(&name, form_name);
-
-            first_palette.sounds.replace(vec![Sound {
-                sound_id,
-                range: 14,
-            }]);
-
-            let dest_path = form_name
-                .map(|form_name| {
-                    format!("assets/pixelmon/sounds/pixelmon/{}-{form_name}.ogg", name)
-                })
-                .unwrap_or_else(|| format!("assets/pixelmon/sounds/pixelmon/{}.ogg", name));
-
-            {
-                let mut lock = resource_zip.lock().unwrap();
-                lock.start_file_from_path(&dest_path, SimpleFileOptions::default())?;
-                lock.write_all(&sound_data).unwrap();
+                    config::ConfigForm::Except(dont_skip) => {
+                        if !dont_skip.contains(&form.name) {
+                            continue;
+                        }
+                    }
+                }
             }
+
+            let form_name = Some(form.name.as_str())
+                .filter(|&form_name| !config.treat_as_base_all.contains(form_name))
+                .filter(|&form_name| {
+                    config
+                        .treat_as_base
+                        .get(&pokemon_name)
+                        .is_none_or(|base_form| base_form != form_name)
+                })
+                .map(String::from); // form_name could be moved back into process_form to save this alloc 
+
+            process_form(
+                form,
+                &pokemon_name,
+                form_name.as_deref(),
+                sound_registry,
+                resource_zip,
+                did_mutate,
+            )?;
         }
+        Ok(())
     }
+}
+
+fn process_form(
+    form: &mut Form,
+    pokemon_name: &str,
+    form_name: Option<&str>,
+    sound_registry: &Mutex<SoundRegistry>,
+    resource_zip: &Mutex<ResourcePackWriter>,
+    did_mutate: &mut bool,
+) -> anyhow::Result<()> {
+    let sound_file = match get_sound_expixel(pokemon_name, form_name)? {
+        Some(f) => f,
+        None => match get_sound_resource(pokemon_name, form_name)? {
+            Some(f) => f,
+            None => {
+                return Err(anyhow!(
+                    "Failed to get sound file for {} {form_name:?}",
+                    &pokemon_name
+                ));
+            }
+        },
+    };
+
+    let first_palette = form
+        .gender_properties
+        .as_mut()
+        .and_then(|f| f.first_mut())
+        .and_then(|props| props.palettes.first_mut())
+        .context(format!(
+            "No gender properties for {pokemon_name}-{}",
+            form.name
+        ))?;
+
+    let sound_data = std::fs::read(&sound_file)?;
+    let sound_id = sound_registry
+        .lock()
+        .unwrap()
+        .register_mob_sound(pokemon_name, form_name);
+
+    let removed_sounds = first_palette.sounds.replace(vec![Sound {
+        sound_id: sound_id.clone(),
+        range: 14,
+    }]);
+
+    if removed_sounds
+        .map(|a| {
+            !a.eq(&vec![Sound {
+                sound_id: sound_id.clone(),
+                range: 14,
+            }])
+        })
+        .unwrap_or_default()
+    {
+        *did_mutate = true
+    }
+
+    let dest_path = form_name
+        .map(|form_name| {
+            format!(
+                "assets/pixelmon/sounds/pixelmon/{}-{form_name}.ogg",
+                pokemon_name
+            )
+        })
+        .unwrap_or_else(|| format!("assets/pixelmon/sounds/pixelmon/{}.ogg", pokemon_name));
+
+    {
+        let mut lock = resource_zip.lock().unwrap();
+        lock.write_sound_file(pokemon_name, form_name, &sound_data, dest_path)
+            .unwrap();
+    }
+    Ok(())
+}
+
+fn process_form_dumb(
+    species: &mut SpeciesData,
+    pokemon_name: &str,
+    sound_registry: &Mutex<SoundRegistry>,
+    resource_zip: &Mutex<ResourcePackWriter>,
+    did_mutate: &mut bool,
+) -> anyhow::Result<()> {
+    let sound_file = match get_sound_expixel(pokemon_name, None)? {
+        Some(f) => f,
+        None => match get_sound_resource(pokemon_name, None)? {
+            Some(f) => f,
+            None => return Err(anyhow!("Failed to get sound file for {}", pokemon_name)),
+        },
+    };
+
+    let form = species.forms.first_mut().context("no forms")?;
+
+    let first_palette = form
+        .gender_properties
+        .as_mut()
+        .and_then(|f| f.first_mut())
+        .and_then(|props| props.palettes.first_mut())
+        .context(format!(
+            "No gender properties for {pokemon_name}-{}",
+            form.name
+        ))?;
+
+    let sound_data = std::fs::read(&sound_file)?;
+    let sound_id = sound_registry
+        .lock()
+        .unwrap()
+        .register_mob_sound(pokemon_name, None);
+
+    let removed_sounds = first_palette.sounds.replace(vec![Sound {
+        sound_id: sound_id.clone(),
+        range: 14,
+    }]);
+
+    if removed_sounds
+        .map(|a| {
+            !a.eq(&vec![Sound {
+                sound_id: sound_id.clone(),
+                range: 14,
+            }])
+        })
+        .unwrap_or_default()
+    {
+        *did_mutate = true
+    }
+
+    let dest_path = format!("assets/pixelmon/sounds/pixelmon/{}.ogg", pokemon_name);
+
+    {
+        let mut lock = resource_zip.lock().unwrap();
+        lock.write_sound_file(pokemon_name, None, &sound_data, dest_path)?;
+    };
 
     Ok(())
 }
