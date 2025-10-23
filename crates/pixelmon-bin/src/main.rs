@@ -109,7 +109,7 @@ fn main() {
         .write(true)
         .create(true)
         .open(format!(
-            "pixelmon_sound_replacer_resource_pack_{}.zip",
+            "pixelmon_cry_replacer_resource_pack_{}.zip",
             config.version_number
         ))
         .unwrap();
@@ -190,7 +190,7 @@ fn main() {
     resource_pack_zip.finish().unwrap();
 
     let data_pack = std::fs::File::create(format!(
-        "pixelmon_sound_replacer_data_pack_{}.zip",
+        "pixelmon_cry_replacer_data_pack_{}.zip",
         config.version_number
     ))
     .unwrap();
